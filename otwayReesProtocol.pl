@@ -26,15 +26,21 @@ knowsAll(P, [C|CS]) :- knows(P, C), knowsAll(P, CS).
 
 canRead(_, plainMessage(_)).
 canRead(P, cipherMessage(K, _)) :- principal(P), sharedKey(P, _, K); sharedKey(_, P, K).
+
  
-protocol([(a, b, [plainMessage(nc), cipherMessage(kas, [na, nc])])
-	  , (b, server, [plainMessage(nc), cipherMessage(kas, [na, nc]), cipherMessage(kbs, [nb, nc])])
-	  , (server, b, [plainMessage(nc), cipherMessage(kas, [na, sharedKey(a, b, kab)]), cipherMessage(kbs, [nb, sharedKey(a, b, kab)])])
-	  , (b, a, [plainMessage(nc), cipherMessage(kas, [na, sharedKey(a, b, kab)])])
-	 ]).
+runProtocol(P1, P2, AS, NC, NA, NB, MSS) :- 
+ sharedKey(P1, AS, KAS), 
+ sharedKey(P2, AS, KBS),
+ issue(AS, sharedKey(P1, P2, KAB)),
+ MSS = ([(P1, P2, [plainMessage(NC), cipherMessage(KAS, [NA, NC])])
+	    , (P2, AS, [plainMessage(NC), cipherMessage(KAS, [NA, NC]), cipherMessage(KBS, [NB, NC])])
+	    , (AS, P2, [plainMessage(NC), cipherMessage(KAS, [NA, sharedKey(P1, P2, KAB)]), cipherMessage(KBS, [NB, sharedKey(P1, P2, KAB)])])
+	    , (P2, P1, [plainMessage(NC), cipherMessage(KAS, [NA, sharedKey(P1, P2, KAB)])])
+	    ]).
 
 
-verify(P1, P2, K) :- protocol([M|MS]), 
+
+verify(P1, P2, AS, NC, NA, NB, K) :- runProtocol(P1, P2, AS, NC, NA, NB, [M|MS]), 
                      verifyMessages([M|MS]),
                      knows(P1, sharedKey(P1, P2, K)), 
                      knows(P2, sharedKey(P1, P2, K)).
